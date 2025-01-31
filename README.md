@@ -18,22 +18,8 @@ De aanbevolen ontwikkelomgeving is GitHub Codespaces, maar de code zou moeten dr
 - C) Editor Groups, hier verschijnen de bestanden die je opent.
 - D) Panel, hierin zit onder andere de Terminal. De terminal geeft toegang tot de virtuele computer, je kunt er commando's intypen.
 
-## Code uitvoeren
-Start het programma door in de terminal te typen<br>
-`python main.py`
-
-Stop de code door indrukken van de toetsen<br>
-`[CRTL]+[C]`
-
-Start het programma opnieuw met de toets<br>
-`[PIJL OMHOOG]`
-
-## GUI openen
-De GUI opent automatisch in Simple Browser nadat de game is gestart.
-
-Als de GUI niet automatisch opent:<br>
-Klik op ports, klik bij port 6080 (GUI) op "Open in Browser" (wereldbol) of "Preview in Editor" (rechts van wereldbol)<br>
-Klik met je muis op de GUI om het toetsenbord aan je game te koppelen.
+## Website bekijken
+- Kies index.html, rechtermuisknop, Show Preview, Open in apart browser window
 
 ## Code aanpassen
 - Dubbelklik op het bestand `main.py`. Het bestand wordt geopend in de editor.
