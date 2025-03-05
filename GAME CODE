@@ -1,3 +1,9 @@
+let menuBackground;
+let homeBackground;
+let parkourBackground;
+let backgroundMusic;
+let jumpSound;
+let snoreSound;
 let gameState = "start";
 let pets = [
     {name: "Dog", emoji: "🐶", price: 0, owned: true, alive: true},
@@ -23,11 +29,25 @@ let lastEventTime = 0;
 let lastPassiveEarningTime = 0;
 let eventMessage = "";
 let eventMessageTimer = 0;
+let isMuted = false;
+
+function preload() {
+    menuBackground = loadImage("output.jpg")
+    homeBackground = loadImage("Naamloze tekening (10).png");
+    parkourBackground = loadImage("Screenshot 2025-03-04 22.10.52.png");
+    backgroundMusic = loadSound("happy-whistling-ukulele-115485.mp3");
+    jumpSound = loadSound("cartoon-jump-6462.mp3");
+    snoreSound = loadSound("cartoon-whistle-snoring-gfx-sounds-1-00-05.mp3")
+}
 
 function setup() {
     createCanvas(650, 400);
     textAlign(CENTER, CENTER);
     textFont('Comic Sans MS');
+    if (!backgroundMusic.isPlaying()) {
+        backgroundMusic.loop();
+        backgroundMusic.setVolume(0.4);
+    }
     setInterval(decreaseStats, 10000);
     setInterval(triggerRandomEvent, 30000);
     setInterval(passiveCoinEarning, 15000);
@@ -45,6 +65,7 @@ function draw() {
     else if (gameState === "sleep") drawSleep();
     else if (gameState === "gameOver") drawGameOver();
     else if (gameState === "changePet") drawChangePetMenu();
+    drawSpeakerButton();
     if (hoveredText !== "") {
         fill(0);
         rect(mouseX, mouseY - 20, textWidth(hoveredText) + 10, 20);
@@ -55,19 +76,16 @@ function draw() {
 }
 
 function drawStartMenu() {
-    background(homeColor);
-    fill(255);
-    textSize(32);
-    text("Pet Paradise", width / 2, height / 4);
-    buttons.push(drawButton("Play", width / 2, height / 2, () => gameState = "home"));
+    background(menuBackground);
+    buttons.push(drawButton("Play", width / 2, height - 20, () => gameState = "home"));
 }
 
 function drawHome() {
-    background(homeColor);
-    fill(255);
-    textSize(20);
-    text(`Coins: ${coins} 💰`, width - 80, 20);
-    textSize(70);
+    background(homeBackground);
+    fill(0);
+    textSize(35);
+    text(`${coins} 💰`, width - 57, 30);
+    textSize(90);
     text(currentPet.emoji, width / 2, height / 2);     
         
     if (eventMessage !== "") {
@@ -107,6 +125,56 @@ function drawHome() {
     buttons.push(drawButton("Shop", 550, 350, () => gameState = "shop"));
     buttons.push(drawButton("Change Pet", width / 2, height / 2 + 80, () => gameState = "changePet"));
     drawBars();
+}
+
+function sleepPet() {
+    if (!sleeping) {
+        sleepTimer = millis();
+        gameState = "sleep";
+        sleeping = true;
+        snoreSound.loop();
+    }
+}
+
+function drawSleep() {
+    background(0);
+    fill(255);
+    textSize(50);
+    text("Zzz...", width / 2, height / 2);
+    if (millis() - sleepTimer > 3500) {
+        if (gameState !== "gameOver") {
+            energy = min(100, energy + 40);
+        }
+        gameState = "home";
+        sleeping = false;
+        snoreSound.stop();
+    }
+}
+
+function drawGameOver() {
+    background(0);
+    fill(255, 0, 0);
+    textSize(30);
+    text("Game Over", width / 2, height / 2);
+    buttons.push(drawButton("Restart", width / 2, height / 2 + 50, restartGame));
+}
+
+function restartGame() {
+    gameState = "start";
+    pets.forEach(pet => { 
+        pet.owned = pet.name === "Dog";
+        pet.alive = true; 
+    });
+    currentPet = pets[0];
+    hunger = 100;
+    happiness = 100;
+    energy = 100;
+    coins = 0;
+    food = 0;
+    obstacles = [];
+    successfulJumps = 0;
+    sleeping = false;
+    eventMessage = "";
 }
 
 function triggerRandomEvent() {
@@ -165,7 +233,7 @@ function startParkour() {
 }
 
 function drawParkour() {
-    background("lightgreen");
+    background(parkourBackground);
     fill(255);
     textSize(24);
     text("Jump over obstacles!", width / 2, 50);
@@ -201,30 +269,19 @@ function drawParkour() {
     buttons.push(drawButton("Back", 550, 20, () => gameState = "home"));
 }
 
-function sleepPet() {
-    gameState = "sleep";
-    sleepTimer = millis();
-    sleeping = true;
-}
-
-function drawSleep() {
-    background(50);
-    fill(255);
-    textSize(50);
-    text("Zzz...", width / 2, height / 2);
-    if (millis() - sleepTimer > 5000) {
-        energy = 100;
-        gameState = "home";
-        sleeping = false;
-    }
-}
-
 function keyPressed() {
     if (key === " " && petY === 300) velocity = jumpForce;
 }
 
 function collideRect(x1, y1, w1, h1, x2, y2, w2, h2) {
     return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
+}
+
+function keyPressed() {
+    if (key === " " && petY === 300 && gameState === "parkour") {
+        velocity = jumpForce;
+        jumpSound.play();
+    }
 }
 
 function drawInventory() {
@@ -249,14 +306,6 @@ function drawShop() {
     buttons.push(drawButton("Back", 550, 350, () => gameState = "home"));
 }
 
-function drawGameOver() {
-    background(0);
-    fill(255, 0, 0);
-    textSize(32);
-    text("Game Over", width / 2, height / 2 - 20);
-    buttons.push(drawButton("Restart", width / 2, height / 2 + 20, () => restartGame()));
-}
-
 function drawBars() {
     drawBar("Hunger", hunger, 20, 20, "red");
     drawBar("Happiness", happiness, 20, 50, "lime");
@@ -264,7 +313,7 @@ function drawBars() {
 }
 
 function drawBar(label, value, x, y, color) {
-    fill(255);
+    fill(0);
     textSize(14);
     text(label, x + 50, y - 5);
     fill(color);
@@ -288,7 +337,6 @@ function mousePressed() {
     }
 }
 
-
 function decreaseStats() {
     hunger = max(0, hunger - 5);
     happiness = max(0, happiness - 5);
@@ -298,10 +346,7 @@ function decreaseStats() {
 
 function checkDeath() {
     if (hunger === 0 || happiness === 0 || energy === 0) {
-        currentPet.alive = false;
-        let alivePet = pets.find(p => p.owned && p.alive);
-        if (alivePet) currentPet = alivePet;
-        else gameState = "gameOver";
+        gameState = "gameOver";
     }
 }
 
@@ -312,10 +357,6 @@ function buyPet(pet) {
     } else if (pet.owned && pet.alive) {
         currentPet = pet;
     }
-}
-
-function sleepPet() {
-    energy = min(100, energy + 40);
 }
 
 function feedPet() {
@@ -332,12 +373,6 @@ function buyPet(pet) {
     }
 }
 
-function restartGame() {
-    hunger = happiness = energy = 100;
-    pets.forEach(p => p.alive = true);
-    gameState = "start";
-}
-
 function drawButton(label, x, y, action) {
     fill(200);
     rect(x - 75, y - 15, 150, 30, 10);
@@ -347,3 +382,21 @@ function drawButton(label, x, y, action) {
     return {x: x - 75, y: y - 15, w: 150, h: 30, action};
 }
 
+function drawSpeakerButton() {
+    textSize(25);
+    let speakerEmoji = isMuted ? "🔇" : "🎵";
+    text(speakerEmoji, 20, height - 16);
+    buttons.push({
+        x: 0, y: height - 36, w: 40, h: 40,
+        action: toggleMute
+    });
+}
+
+function toggleMute() {
+    isMuted = !isMuted;
+    if (isMuted) {
+        backgroundMusic.stop();
+    } else {
+        backgroundMusic.loop();
+    }
+}
