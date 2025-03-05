@@ -234,7 +234,7 @@ function startParkour() {
 
 function drawParkour() {
     background(parkourBackground);
-    fill(255);
+    fill(0);
     textSize(24);
     text("Jump over obstacles!", width / 2, 50);
     textSize(50);
