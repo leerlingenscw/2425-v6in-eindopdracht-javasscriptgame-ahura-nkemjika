@@ -1,0 +1,429 @@
+let menuBackground;
+let homeBackground;
+let parkourBackground;
+let backgroundMusic;
+let jumpSound;
+let snoreSound;
+let gameState = "start";
+let pets = [
+    {name: "Dog", emoji: "🐶", price: 0, owned: true, alive: true},
+    {name: "Cat", emoji: "🐱", price: 50, owned: false, alive: true},
+    {name: "Rabbit", emoji: "🐰", price: 60, owned: false, alive: true},
+    {name: "Chicken", emoji: "🐔", price: 75, owned: false, alive: true},
+    {name: "Turtle", emoji: "🐢", price: 80, owned: false, alive: true},
+    {name: "Fox", emoji: "🦊", price: 90, owned: false, alive: true},
+    {name: "Snake", emoji: "🐍", price: 100, owned: false, alive: true},
+    {name: "Panda", emoji: "🐼", price: 150, owned: false, alive: true},
+    {name: "Tiger", emoji: "🐯", price: 200, owned: false, alive: true},
+    {name: "Dragon", emoji: "🐉", price: 500, owned: false, alive: true}
+];
+let currentPet = pets[0];
+let hunger = 100, happiness = 100, energy = 100, coins = 0, food = 0;
+let obstacles = [], jump = false, velocity = 0, gravity = 0.6, jumpForce = -10, petY = 300, successfulJumps = 0;
+let homeColor = "#A77B5D";
+let buttons = [];
+let sleepTimer = 0, sleeping = false;
+let changingPet = false;
+let hoveredText = "";
+let lastEventTime = 0;
+let lastPassiveEarningTime = 0;
+let eventMessage = "";
+let eventMessageTimer = 0;
+let isMuted = false;
+
+// Afbeeldingen en geluiden inladen
+function preload() {
+    menuBackground = loadImage("output.jpg")
+    homeBackground = loadImage("Naamloze tekening (10).png");
+    parkourBackground = loadImage("Screenshot 2025-03-04 22.10.52.png");
+    backgroundMusic = loadSound("happy-whistling-ukulele-115485.mp3");
+    jumpSound = loadSound("cartoon-jump-6462.mp3");
+    snoreSound = loadSound("cartoon-whistle-snoring-gfx-sounds-1-00-05.mp3")
+}
+
+// Canvas, achtergrond muziek en alle tijdgebonden events
+function setup() {
+    createCanvas(650, 400);
+    textAlign(CENTER, CENTER);
+    textFont('Comic Sans MS');
+    if (!backgroundMusic.isPlaying()) {
+        backgroundMusic.loop();
+        backgroundMusic.setVolume(0.4);
+    }
+    setInterval(decreaseStats, 10000);
+    setInterval(triggerRandomEvent, 30000);
+    setInterval(passiveCoinEarning, 15000);
+}
+
+// Alle game statussen
+function draw() {
+    background(220);
+    buttons = [];
+    hoveredText = "";
+    if (gameState === "start") drawStartMenu();
+    else if (gameState === "home") drawHome();
+    else if (gameState === "parkour") drawParkour();
+    else if (gameState === "inventory") drawInventory();
+    else if (gameState === "shop") drawShop();
+    else if (gameState === "sleep") drawSleep();
+    else if (gameState === "gameOver") drawGameOver();
+    else if (gameState === "changePet") drawChangePetMenu();
+    drawSpeakerButton();
+    if (hoveredText !== "") {
+        fill(0);
+        rect(mouseX, mouseY - 20, textWidth(hoveredText) + 10, 20);
+        fill(255);
+        textSize(12);
+        text(hoveredText, mouseX + (textWidth(hoveredText) / 2), mouseY - 10);
+    }
+}
+
+// Startmenu en startknop
+function drawStartMenu() {
+    background(menuBackground);
+    buttons.push(drawButton("Play", width / 2, height - 20, () => gameState = "home"));
+}
+
+// "Home" menu met alle events, knoppen en gegevens die hierbij horen
+function drawHome() {
+    background(homeBackground);
+    fill(0);
+    textSize(35);
+    text(`${coins} 💰`, width - 57, 30);
+    textSize(90);
+    text(currentPet.emoji, width / 2, height / 2);     
+        
+    if (eventMessage !== "") {
+        fill(255);
+        rect(width / 2 - 151, height / 2 - 90, 300, 40, 10);
+        fill(0);
+        textSize(14);
+        text(eventMessage, width / 2, height / 2 - 70);
+        if (millis() > eventMessageTimer + 5000) {
+            eventMessage = "";
+        }
+    }
+  
+    let ownedPets = pets.filter(pet => pet.owned).length;
+    if (ownedPets >= 3) {
+        text("🏅", width / 2 + 50, height / 2);
+        if (dist(mouseX, mouseY, width / 2 + 50, height / 2) < 20) {
+            hoveredText = "Achievement: Own 3 pets!";
+        }
+    }
+    if (ownedPets === pets.length) {
+        text("🏆", width / 2 + 100, height / 2);
+        if (dist(mouseX, mouseY, width / 2 + 100, height / 2) < 20) {
+            hoveredText = "Achievement: Collected all pets!";
+        }
+    }
+    
+      if (eventMessage !== "") {
+        fill(255, 204, 0);
+        textSize(16);
+        text(eventMessage, width / 2, height - 50);
+    }
+    
+    buttons.push(drawButton("Parkour", 100, 350, () => startParkour()));
+    buttons.push(drawButton("Inventory", 250, 350, () => gameState = "inventory"));
+    buttons.push(drawButton("Sleep", 400, 350, () => sleepPet()));
+    buttons.push(drawButton("Shop", 550, 350, () => gameState = "shop"));
+    buttons.push(drawButton("Change Pet", width / 2, height / 2 + 80, () => gameState = "changePet"));
+    drawBars();
+}
+
+// Slaap functie
+function sleepPet() {
+    if (!sleeping) {
+        sleepTimer = millis();
+        gameState = "sleep";
+        sleeping = true;
+        snoreSound.loop();
+    }
+}
+
+// Wat er moet gebeuren als je op de "Sleep" knop drukt
+function drawSleep() {
+    background(0);
+    fill(255);
+    textSize(50);
+    text("Zzz...", width / 2, height / 2);
+    if (millis() - sleepTimer > 3500) {
+        if (gameState !== "gameOver") {
+            energy = min(100, energy + 40);
+        }
+        gameState = "home";
+        sleeping = false;
+        snoreSound.stop();
+    }
+}
+
+// Wat je ziet als je game over krijgt
+function drawGameOver() {
+    background(0);
+    fill(255, 0, 0);
+    textSize(30);
+    text("Game Over", width / 2, height / 2);
+    buttons.push(drawButton("Restart", width / 2, height / 2 + 50, restartGame));
+}
+
+// Wat er moet gebeuren als in de game over scherm op "Restart" drukt
+function restartGame() {
+    gameState = "start";
+    pets.forEach(pet => { 
+        pet.owned = pet.name === "Dog";
+        pet.alive = true; 
+    });
+    currentPet = pets[0];
+    hunger = 100;
+    happiness = 100;
+    energy = 100;
+    coins = 0;
+    food = 0;
+    obstacles = [];
+    successfulJumps = 0;
+    sleeping = false;
+    eventMessage = "";
+}
+
+// Alle events die geld geven tijdens het spelen
+function triggerRandomEvent() {
+    let events = [
+        "Your pet found a hidden coin! 💰 +5", 
+        "A visitor gifted your pet some coins! 💰 +10",
+        "Your pet discovered a small treasure! 💰 +15"
+    ];
+    let randomEvent = random(events);
+    coins += (randomEvent.includes("+5")) ? 5 : (randomEvent.includes("+10")) ? 10 : 15;
+    eventMessage = randomEvent;
+    eventMessageTimer = millis();
+}
+
+// Geld dat je verdient met het bezitten van huisdieren
+function passiveCoinEarning() {
+    let ownedPets = pets.filter(pet => pet.owned).length;
+    if (ownedPets > 1) {
+        coins += ownedPets;
+    }
+}
+
+// Verkopen van eten voor geld
+function sellFood() {
+    if (food > 0) {
+        food--;
+        coins += 3;
+    }
+}
+
+// Wat je ziet en wat er moet gebeuren in het "Change pet" menu
+function drawChangePetMenu() {
+    background("lightblue");
+    fill(0);
+    textSize(24);
+    text("Select a Pet", width / 2, 40);
+    let x = 50;
+    for (let pet of pets) {
+        if (pet.owned) {
+            textSize(50);
+            text(pet.emoji, x, height / 2);
+            buttons.push(drawButton(pet.emoji, x, height / 2 + 50, () => { currentPet = pet; gameState = "home"; }));
+            x += 60;
+        }
+    }
+    buttons.push(drawButton("Back", width / 2, height - 50, () => gameState = "home"));
+}
+
+// Wat er moet gebeuren als je op de "Parkour" knop drukt
+function startParkour() {
+    gameState = "parkour";
+    obstacles = [];
+    petY = 300;
+    successfulJumps = 0;
+    let lastX = 400;
+    for (let i = 1; i <= 5; i++) {
+        let newX = lastX + random(250, 350);
+        obstacles.push({x: newX, y: 320, w: 20, h: 30});
+        lastX = newX;    }
+}
+
+// Wat je ziet in de parkour game en hoe de parkour game moet werken
+function drawParkour() {
+    background(parkourBackground);
+    fill(0);
+    textSize(24);
+    text("Jump over obstacles!", width / 2, 50);
+    textSize(50);
+    text(currentPet.emoji, 100, petY);
+    
+    velocity += gravity;
+    petY += velocity;
+    if (petY > 300) {
+        petY = 300;
+        velocity = 0;
+        jump = false;
+    }
+
+    for (let obs of obstacles) {
+        fill("brown");
+        rect(obs.x, obs.y, obs.w, obs.h);
+        obs.x -= 5;
+        if (obs.x < -20) {
+            obs.x = width + random(250, 350);
+            coins++;
+            successfulJumps++;
+            if (successfulJumps % 10 === 0) food++;
+        }
+        if (collideRect(100, petY + 10, 40, 40, obs.x, obs.y, obs.w, obs.h)) {
+            gameState = "home";
+            happiness = min(100, happiness + 10);
+            food++;
+            energy -= 10;
+            return;
+        }
+    }
+    buttons.push(drawButton("Back", 550, 20, () => gameState = "home"));
+}
+
+// De ruimte rond de blokken in de parkour game
+function collideRect(x1, y1, w1, h1, x2, y2, w2, h2) {
+    return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
+}
+
+// Springen en spring geluid als je op spatie drunkt in de parkour game
+function keyPressed() {
+    if (key === " " && petY === 300 && gameState === "parkour") {
+        velocity = jumpForce;
+        jumpSound.play();
+    }
+}
+
+// Wat je ziet en de knoppen in de Inventory menu
+function drawInventory() {
+    background(200);
+    textSize(20);
+    text("Inventory", width / 2, 50);
+    text(`Food: ${food} 🍖`, width / 2, 100);
+    buttons.push(drawButton("Feed", width / 2, 200, () => feedPet()));
+    buttons.push(drawButton("Back", width / 2, 300, () => gameState = "home"));
+    buttons.push(drawButton("Sell Food", width / 2, 250, sellFood));
+}
+
+// Wat je ziet en de knoppen in de Shop menu
+function drawShop() {
+    background("#FFD700");
+    textSize(24);
+    text(`Coins: ${coins} 💰`, width / 2, 50);
+    for (let i = 0; i < pets.length; i++) {
+        let pet = pets[i];
+        let status = pet.owned ? "Owned" : pet.alive ? `$${pet.price}` : "Dead";
+        buttons.push(drawButton(`${pet.emoji} ${pet.name} - ${status}`, width / 2, 100 + i * 30, () => buyPet(pet)));
+    }
+    buttons.push(drawButton("Back", 550, 350, () => gameState = "home"));
+}
+
+// De kleur en positie van de "bars" (Hunger, Happiness, Energy)
+function drawBars() {
+    drawBar("Hunger", hunger, 20, 20, "red");
+    drawBar("Happiness", happiness, 20, 50, "lime");
+    drawBar("Energy", energy, 20, 80, "gold");
+}
+
+// Hoe elke bar eruit moet zien
+function drawBar(label, value, x, y, color) {
+    fill(0);
+    textSize(14);
+    text(label, x + 50, y - 5);
+    fill(color);
+    rect(x, y, value, 10);
+}
+
+// Hoe alle (grijze) buttons in de game eruit moeten zien
+function drawButton(label, x, y, action) {
+    fill(200);
+    rect(x - 50, y - 15, 100, 30, 10);
+    fill(0);
+    textSize(16);
+    text(label, x, y);
+    return {x: x - 50, y: y - 15, w: 100, h: 30, action};
+}
+
+// Hoe buttons klikken met de muis moet werken
+function mousePressed() {
+    for (let btn of buttons) {
+        if (mouseX > btn.x && mouseX < btn.x + btn.w && mouseY > btn.y && mouseY < btn.y + btn.h) {
+            btn.action();
+        }
+    }
+}
+
+// Zorgt ervoor dat de bars met deze waardes afnemen per 10 seconden
+function decreaseStats() {
+    hunger = max(0, hunger - 5);
+    happiness = max(0, happiness - 5);
+    energy = max(0, energy - 2);
+    checkDeath();
+}
+
+// Checkt of een van de bars 0 heeft bereikt, als dat zo is krijgt de speler game over
+function checkDeath() {
+    if (hunger === 0 || happiness === 0 || energy === 0) {
+        gameState = "gameOver";
+    }
+}
+
+// Wat er moet gebeuren als je een huisdier koopt en wat er (niet) moet gebeuren als je op een "Owned" huisdier drukt in de Shop menu
+function buyPet(pet) {
+    if (!pet.owned && coins >= pet.price) {
+        coins -= pet.price;
+        pet.owned = true;
+    } else if (pet.owned && pet.alive) {
+        currentPet = pet;
+    }
+}
+
+// Toenemen van de Hunger bar na het voeren van je huisdier (Feed)
+function feedPet() {
+    if (food > 0) {
+        food--;
+        hunger = min(100, hunger + 30);
+    }
+}
+
+// Kopen van een huisdier in de Shop menu
+function buyPet(pet) {
+    if (!pet.owned && pet.price <= coins) {
+        coins -= pet.price;
+        pet.owned = true;
+    }
+}
+
+// Hoe alle (grijze) buttons in de game eruit moeten zien
+function drawButton(label, x, y, action) {
+    fill(200);
+    rect(x - 75, y - 15, 150, 30, 10);
+    fill(0);
+    textSize(16);
+    text(label, x, y);
+    return {x: x - 75, y: y - 15, w: 150, h: 30, action};
+}
+
+// Hoe de "Mute" knop eruit moet zien en moet werken
+function drawSpeakerButton() {
+    textSize(25);
+    let speakerEmoji = isMuted ? "🔇" : "🎵";
+    text(speakerEmoji, 20, height - 16);
+    buttons.push({
+        x: 0, y: height - 36, w: 40, h: 40,
+        action: toggleMute
+    });
+}
+
+// Hoe de Mute functie moet werken
+function toggleMute() {
+    isMuted = !isMuted;
+    if (isMuted) {
+        backgroundMusic.stop();
+    } else {
+        backgroundMusic.loop();
+    }
+}
